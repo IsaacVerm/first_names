@@ -20,21 +20,96 @@ load(file.path(load_path,"clean_first_names_births_belgium.RData"))
 
 first_names$dash <- grepl(pattern = "-", x = first_names$name)
 
-### dash names by year
+### unique dash names by year
 
-dash_names_by_year <- first_names %>%
-                          group_by(year) %>%
-                              summarise(nr_dash = sum(dash))
+## function to calculate number of dash names by variables of choice
 
-graph_dash_names_by_year <- ggplot(data = dash_names_by_year,
-                                  aes(x = year, y = nr_dash)) +
-                            geom_line(group = 1) + 
-                            theme(axis.text.x = element_text(angle = 90, hjust = 1))
+calculate.nrdash <- function(df, ...) {
 
-plot(graph_dash_names_by_year)
+  dash_names_var <- df %>%
+    group_by_(...) %>%
+      summarise(nr_dash = sum(dash))  
+  
+  return(dash_names_var)
+}
+
+## calculate number of unique dash names
+
+# by year, belgium only
+
+unique_dash_belgium <- calculate.nrdash(df = filter(first_names, region == "België"),
+                                    "year")
+
+# by year, region and gender
+
+unique_dash_cross_all <- calculate.nrdash(df = filter(first_names, region != "België"),
+                                      "year","region","gender")
+
+## function to make graph by year
+
+graph.year <- function(df) {
+  
+  graph <- ggplot(data = df,
+                  aes(x = year, y = nr_dash)) +
+    geom_line(group = 1) + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  
+  return(graph)
+  
+  }
+
+## graph
+
+# by year, belgium only
+
+graph_unique_dash_belgium <- graph.year(unique_dash_belgium) +
+                         labs(title = "Number of unique dash names by year",
+                              y = "number of names with dashes")
+plot(graph_unique_dash_belgium)
+
+# by year, region and gender
+
+graph_unique_dash_cross_all <- graph.year(unique_dash_cross_all) + 
+                           facet_grid(gender~region) +
+                           labs(title = "Number of unique dash names by year, region and gender",
+                                y = "number of names with dashes") +
+                            scale_y_continuous(breaks = seq(from = 0, to = 15, by = 5),
+                                               minor_breaks = waiver())
+plot(graph_unique_dash_cross_all)
+
+### total dash names by year
+
+## function to calculate total dash names
+
+calculate.totaldash <- function(df, ...) {
+  
+  total <- df %>%
+    group_by_(...) %>%
+    summarise(total_dash = sum(dash*count))  
+  
+  return(total)
+}
+
+## calculate total dash names by year
+
+total_dash_belgium <- filter(first_names, region == "België") %>%
+                          calculate.totaldash("year")
+
+## graph
+
+graph_total_dash_belgium <- ggplot(data = total_dash_belgium,
+                                   aes(x = year, y = total_dash)) +
+  geom_line(group = 1) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+plot(graph_total_dash_belgium)
+
+### investigate conspicuous patterns
 
 ### save
 
-ggsave(plot = graph_dash_names_by_year,
-       filename = file.path(save_path,"graph_dash_names_by_year.png"))
+graphs <- mget(ls()[grep(x = ls(), pattern = "graph_")])
+
+mapply(ggsave, file = file.path(save_path,paste0(names(graphs),".png")), plot = graphs)
+
                               
